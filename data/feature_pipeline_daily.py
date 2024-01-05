@@ -1,57 +1,35 @@
 import feature_library as fl
+import modal
 
-RUN_ON_MODAL = False
-MAX_CRAWL_TIME = 2*60*60
+LOCAL = False
 
-def get_live_data():
-    #TODO
-    pass
+if LOCAL == False:
+    stub = modal.Stub('hackernews-score-pred')
+    image = modal.Image.debian_slim().pip_install(['hopsworks'])
+
+    @stub.function(image=image, schedule=modal.Period(hours=1), secret=modal.Secret.from_name("hopsworks.ai"))
+    def f():
+        g()
+
+def generate_live_data():
+    import pandas as pd
+    stories = fl.get_last_ten_stories()
+    data: list = [fl.process_story(story) for story in stories]
+    return fl.convert_to_df(data)
 
 def g():
-    import os
-    import numpy as np
-    import pandas as pd
     import hopsworks
-    from glob import glob
-    from tqdm import tqdm
-    
-    from feature_processing import load_text_encoder
-    
-    tsvs = glob('./csvs/*.tsv')
-    dfs = pd.concat([pd.read_csv(tsv, sep='\t', usecols=lambda x: x!='id') for tsv in tsvs])
-    dfs['url'].fillna('', inplace=True)
-    
-    project = hopsworks.login()
+
+    project = hopsworks.login(project="id2223_enric")
     fs = project.get_feature_store()
-    
-    feat_grp = fs.get_or_create_feature_group(
-        name="hackernews-posts",
-        version=1,
-        primary_key=['time'],
-        description="Hackernews posts from API",
-    )
-    
-    feat_grp.insert(dfs, write_options={"wait_for_job": True})
 
+    hackernews_df = generate_live_data()
 
-import modal
-stub = modal.stub()
-image = modal.Image.debian_slim().pip_install(['hopsworks', 'transformers', 'torch', 'pandas', 'einops'])
-@stub.function(image=image,
-               schedule=modal.Period(days=1),
-               secret=modal.Secret.from_name("hackernews-score-pred")
-               )
-def f():
-    g()
-
+    hackernews_fg = fs.get_feature_group("hackernews_fg", 1)
+    hackernews_fg.insert(hackernews_df, write_options={"wait_for_job": True})
 
 if __name__ == '__main__':
-    
-    if RUN_ON_MODAL:
-        with stub.run():
-            f.call()
-    else:
+    if LOCAL == True:
         g()
-    # stories = fl.get_last_ten_stories()
-    # data: list = [fl.process_story(story) for story in stories]
-    # print(data)
+    else:
+        modal.runner.deploy_stub(stub)

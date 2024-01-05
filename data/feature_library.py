@@ -1,4 +1,6 @@
 import requests, json
+import pandas as pd
+import numpy as np
 
 BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
@@ -27,7 +29,6 @@ def get_user_by_id(id: str) -> json:
 
 def process_story(story: json) -> json:
     user = get_user_by_id(story['by'])
-    print(story)
     return {
         'id': story['id'],
         'title': story['title'],
@@ -38,3 +39,10 @@ def process_story(story: json) -> json:
         'by': story['by'],
         'karma': user['karma']
     }
+
+def convert_to_df(stories: list) -> pd.DataFrame:
+    data = pd.DataFrame(stories)
+    data['id'] = data['id'].astype(np.int8)
+    data['score'] = data['score'].astype(float)
+    data['time'] = data['time'].astype(float)
+    return pd.DataFrame(data)
