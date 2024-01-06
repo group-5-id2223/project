@@ -1,9 +1,15 @@
+import hopsworks
+project = hopsworks
+
 RUN_ON_MODAL=True
 USE_GPU=True
 BAYESIAN_SEARCH=True
 BAYESIAN_ITERATIONS=7
-
+    
 def g():
+    import hopsworks
+    import torch
+    
     from utils.training import train_model, upload_model_to_hopsworks, generate_prediction_plots, get_metrics, post_process_predictions, generate_shap_summary_plots, generate_confusion_matrix
 
     model, X_train, X_test, y_train, y_test = train_model(bayesian_search=BAYESIAN_SEARCH, bayesian_n_iterations=BAYESIAN_ITERATIONS, use_gpu=USE_GPU)
@@ -45,7 +51,6 @@ image = modal.Image.debian_slim().pip_install(["hopsworks==3.0.5","joblib==1.2.0
 @stub.function(image=image,
                schedule=modal.Period(days=7),
                secret=modal.Secret.from_name("reddit-predict"),
-               mounts=[modal.Mount(remote_dir="/root/utils", local_dir="./utils")],
                timeout=60*60, # 60min timeout
                gpu="any",
                retries=1
@@ -59,8 +64,6 @@ if __name__ == "__main__":
             f.call()
     else:
         # NOTE: Create an .env file in the root directory if you want to run this locally
-        from dotenv import load_dotenv
-        load_dotenv()
         g()
         
         
