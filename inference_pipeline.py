@@ -1,5 +1,4 @@
-import hopsworks
-project = hopsworks
+import re
 
 RUN_ON_MODAL=True
 USE_GPU=True
@@ -7,44 +6,69 @@ BAYESIAN_SEARCH=True
 BAYESIAN_ITERATIONS=7
     
 def g():
+    import re
     import hopsworks
     import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    from nbs.feature_processing import load_text_encoder, to_embedding
     
-    from utils.training import train_model, upload_model_to_hopsworks, generate_prediction_plots, get_metrics, post_process_predictions, generate_shap_summary_plots, generate_confusion_matrix
-
-    model, X_train, X_test, y_train, y_test = train_model(bayesian_search=BAYESIAN_SEARCH, bayesian_n_iterations=BAYESIAN_ITERATIONS, use_gpu=USE_GPU)
-
-    # Note: the model automatically calls transform on all the preprocessing steps and then calls predict on the model
-    y_pred = model.predict(X_test)
-    y_pred = post_process_predictions(y_pred)
-
-    # Upvote ratio can only be in interval [0,1]
-    upvote_ratio_idx = y_test.columns.get_loc("upvote_ratio")
-    y_pred[upvote_ratio_idx] = y_pred[upvote_ratio_idx].clip(0, 1)
-
-    output_dir = "reddit_model"
-
-    generate_prediction_plots(y_test, y_pred, output_dir)
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.ll1 = nn.Linear(768, 1024)
+            self.bn1 = nn.BatchNorm1d(2)
+            self.elu1 = nn.ELU()
+            self.ll2 = nn.Linear(1024, 512)
+            self.bn2 = nn.BatchNorm1d(2)
+            self.elu2 = nn.ELU()
+            self.llf = nn.Linear(512, 1)
+            
+        def forward(self, x):
+            x = self.elu1(self.bn1(self.ll1(x)))
+            x = self.elu2(self.bn2(self.ll2(x)))
+            x = torch.sum(x, dim=1)
+            x = self.llf(x)
+            return x
     
-    metrics = get_metrics(y_test, y_pred)
+    def extract_words_from_link(link):
+    # Match alphanumeric sequences
+        url_str = ""
+        words = re.findall(r'\b\w+\b', link)
+        remove_list = ['https', 'http', 'www']
+        final_words = [w for w in words if not(w in remove_list)]
+        for w in final_words:
+            url_str += w + " "
+        return url_str
 
-    generate_shap_summary_plots(model, X_test, output_dir)
-
-    generate_confusion_matrix(y_test, y_pred, output_dir)
-
-    try:
-        upload_model_to_hopsworks(model, X_train, y_train, metrics, output_dir)
-    except Exception as e:
-        import traceback
-        import pickle
-        print("Could not upload model to hopsworks")
-        print(e)
-        traceback.print_exc()
-        with open("rescue_save.pkl", "wb") as f:
-            rescue = [model, X_train, X_test, y_train, y_test, metrics]
-            pickle.dump(rescue, f)
-
-
+    project = hopsworks.login(project='id2223_enric')
+    fs = project.get_feature_store()
+    
+    hackernews_fg = fs.get_feature_group("hackernews_fg", 1)
+    query = hackernews_fg.select_all()
+    feature_view = fs.get_or_create_feature_view(name="hackernews_fv",
+                                    version=1,
+                                    description="Hackernews feature view",
+                                    labels=["score"],
+                                    query=query)
+    #complete loading the df
+    df = pass
+    df_last = df.iloc[-10:]
+    
+    title = df_last['title'].tolist()
+    url = [extract_words_from_link(val) for val in df_last['url']]
+    
+    title_embedding = to_embedding(title)
+    url_embedding = to_embedding(url)
+    embeddings = torch.cat([title_embedding, url_embedding], dim=1)
+    embeddings = F.softmax(embeddings, dim=-1)
+    
+    # model = load model from hopsworks after you upload it
+    model = torch.load('nbs/model.pth')
+    output = model(embeddings)
+    scores = output * 280
+    
+    
 import modal
 stub = modal.Stub()
 image = modal.Image.debian_slim().pip_install(["hopsworks==3.0.5","joblib==1.2.0","pandas==1.3.5","xgboost==1.6.2","scikit-learn==1.2.0","seaborn==0.12.2","praw==7.6.1","bayesian-optimization==1.4.2","shap==0.41.0"])
