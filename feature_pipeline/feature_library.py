@@ -29,10 +29,11 @@ def get_user_by_id(id: str) -> json:
 
 def process_story(story: json) -> json:
     user = get_user_by_id(story['by'])
+
     return {
         'id': story['id'],
         'title': story['title'],
-        'url': story['url'],
+        'url': story.get('url', ''),
         'score': story['score'],
         'time': story['time'],
         'descendants': story['descendants'],
@@ -44,5 +45,5 @@ def convert_to_df(stories: list) -> pd.DataFrame:
     data = pd.DataFrame(stories)
     data['id'] = data['id'].astype(np.int8)
     data['score'] = data['score'].astype(float)
-    data['time'] = data['time'].astype(float)
+    data['time'] = pd.to_datetime(data['time'], unit='s')
     return pd.DataFrame(data)
