@@ -1,9 +1,27 @@
 import re
+import torch
+import torch.nn.functional as F
 
 RUN_ON_MODAL=True
 USE_GPU=True
 BAYESIAN_SEARCH=True
 BAYESIAN_ITERATIONS=7
+
+from nbs.feature_processing import to_embedding
+
+def predict_score(title: str, url: str) -> int:
+    title_embedding = to_embedding([title]).unsqueeze(0)
+    url_embedding = to_embedding([url]).unsqueeze(0)
+    
+    embeddings = torch.cat([title_embedding, url_embedding], dim=1)
+    embeddings = F.softmax(embeddings, dim=-1)
+    
+    model = torch.load('nbs/model.pth')
+    # call model from hopsworks?
+    output = model(embeddings)
+    scores = output * 280
+    return int(scores)
+    
     
 def g():
     import re
@@ -80,8 +98,8 @@ def g():
     title = df_last['title'].tolist()
     url = [extract_words_from_link(val) for val in df_last['url']]
     
-    title_embedding = to_embedding(title)
-    url_embedding = to_embedding(url)
+    title_embedding = to_embedding(title).unsqueeze(1)
+    url_embedding = to_embedding(url).unsqueeze(1)
     embeddings = torch.cat([title_embedding, url_embedding], dim=1)
     embeddings = F.softmax(embeddings, dim=-1)
     
@@ -90,7 +108,7 @@ def g():
     # call model from hopsworks?
     output = model(embeddings)
     scores = output * 280
-    # return
+    return scores
     
     
 import modal
