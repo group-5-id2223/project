@@ -11,9 +11,8 @@ if LOCAL == False:
     @stub.function(image=image,
                 schedule=modal.Period(days=7),
                 secret=modal.Secret.from_name("hopsworks_pred"),
-                timeout=60*60, # 60min timeout
+                timeout=60*5, # 60min timeout
                 gpu="any",
-                retries=1
                 )
     def f():
         g()
@@ -90,14 +89,12 @@ def g():
     title = batch_data['title'].tolist()
     url = [extract_words_from_link(val) for val in batch_data['url']]
     
-    title_embedding = to_embedding(title)
-    url_embedding = to_embedding(url)
+    title_embedding = to_embedding(title).unsqueeze(1)
+    url_embedding = to_embedding(url).unsqueeze(1)
     embeddings = torch.cat([title_embedding, url_embedding], dim=1)
     embeddings = F.softmax(embeddings, dim=-1)
     
-    # model = load model from hopsworks after you upload it
     model = torch.load('nbs/model.pth', map_location=torch.device('cpu'))
-    # call model from hopsworks?
     output = model(embeddings)
     scores = output * 280
     # return
