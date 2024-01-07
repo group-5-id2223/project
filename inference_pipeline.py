@@ -7,11 +7,31 @@ BAYESIAN_ITERATIONS=7
     
 def g():
     import re
+    import transformers
     import hopsworks
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
-    from nbs.feature_processing import load_text_encoder, to_embedding
+    
+    hf_hub_model_name = "princeton-nlp/sup-simcse-bert-base-uncased"
+    hf_hub_model = None
+
+    def load_encoding_model():
+        global hf_hub_model
+        if hf_hub_model is None:
+            from transformers import AutoModel, AutoTokenizer
+            hf_hub_model = {
+                "tokenizer": AutoTokenizer.from_pretrained(hf_hub_model_name),
+                "model": AutoModel.from_pretrained(hf_hub_model_name)
+            }
+        return hf_hub_model
+    
+    @torch.no_grad()
+    def to_embedding(data):
+        hf_hub_model = load_encoding_model()
+        inputs = hf_hub_model['tokenizer'](data, padding=True, truncation=True, return_tensors="pt")
+        embedding = hf_hub_model['model'](**inputs, output_hidden_states=True, return_dict=True).pooler_output
+        return embedding
     
     class Model(nn.Module):
         def __init__(self):
@@ -52,8 +72,10 @@ def g():
                                     labels=["score"],
                                     query=query)
     #complete loading the df
+    # we load the dataframe from hopsworks
     df = pass
     df_last = df.iloc[-10:]
+    # df_last = #enric gets it
     
     title = df_last['title'].tolist()
     url = [extract_words_from_link(val) for val in df_last['url']]
@@ -65,16 +87,18 @@ def g():
     
     # model = load model from hopsworks after you upload it
     model = torch.load('nbs/model.pth')
+    # call model from hopsworks?
     output = model(embeddings)
     scores = output * 280
+    # return
     
     
 import modal
 stub = modal.Stub()
-image = modal.Image.debian_slim().pip_install(["hopsworks==3.0.5","joblib==1.2.0","pandas==1.3.5","xgboost==1.6.2","scikit-learn==1.2.0","seaborn==0.12.2","praw==7.6.1","bayesian-optimization==1.4.2","shap==0.41.0"])
+image = modal.Image.debian_slim().pip_install(["hopsworks", "torch", "re", "transformers"])
 @stub.function(image=image,
                schedule=modal.Period(days=7),
-               secret=modal.Secret.from_name("reddit-predict"),
+               secret=modal.Secret.from_name("hopsworks_pred"),
                timeout=60*60, # 60min timeout
                gpu="any",
                retries=1
