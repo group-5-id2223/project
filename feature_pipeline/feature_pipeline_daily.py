@@ -1,7 +1,7 @@
 import feature_library as fl
 import modal
 
-LOCAL = False
+LOCAL = True
 
 if LOCAL == False:
     stub = modal.Stub('hackernews-score-pred')
@@ -12,7 +12,6 @@ if LOCAL == False:
         g()
 
 def generate_live_data():
-    import pandas as pd
     stories = fl.get_last_ten_stories()
     data: list = [fl.process_story(story) for story in stories]
     return fl.convert_to_df(data)
@@ -25,7 +24,7 @@ def g():
 
     hackernews_df = generate_live_data()
 
-    hackernews_fg = fs.get_feature_group("hackernews_fg", 1)
+    hackernews_fg = fs.get_feature_group("hackernews_fg", 2)
     hackernews_fg.insert(hackernews_df, write_options={"wait_for_job": True})
 
 if __name__ == '__main__':
