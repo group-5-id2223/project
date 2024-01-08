@@ -19,3 +19,7 @@ These concatenated features are then passed through a linear layers to obtain th
 Minimizing `mse` loss as typical for regression problems will not work, as the model will realize that selecting 1 unilaterally accomplishes this task the best.
 
 Instead, create a hybrid loss of `mae`, `msle`, and `poisson` (see Keras's docs for more info: https://github.com/keras-team/keras/blob/master/keras/losses.py) The latter two losses can account for very high values much better; perfect for the hyper-skewed data.
+
+## Websites
+Online: [link](https://huggingface.co/spaces/ID2223/hackernews-upvotes-predictor)
+Monitor: [link](https://huggingface.co/spaces/ID2223/hackernews-upvotes-predictor-monitor)
