@@ -1,0 +1,9 @@
+[submodule "hackernews_upvotes_predictor"]
+	path = hackernews_upvotes_predictor
+	url = https://huggingface.co/spaces/ID2223/hackernews-upvotes-predictor
+[submodule "hackernews-upvotes-predictor-monitor"]
+	path = hackernews-upvotes-predictor-monitor
+	url = https://huggingface.co/spaces/ID2223/hackernews-upvotes-predictor-monitor
+[submodule "hackernews-upvotes-predictor"]
+	path = hackernews-upvotes-predictor
+	url = https://huggingface.co/spaces/ID2223/hackernews-upvotes-predictor

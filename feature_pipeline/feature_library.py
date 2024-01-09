@@ -4,9 +4,9 @@ import numpy as np
 
 BASE_URL = "https://hacker-news.firebaseio.com/v0"
 
-def get_last_ten_stories() -> json:
+def get_top_ten_stories() -> json:
     stories: list = []
-    stories_ids: list[int] = requests.get(f"{BASE_URL}/newstories.json").json()
+    stories_ids: list[int] = requests.get(f"{BASE_URL}/topstories.json").json()
     i = 0
     for story_id in stories_ids:
         if is_story(get_item_by_id(story_id)):

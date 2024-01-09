@@ -162,3 +162,5 @@ cython_debug/
 
 # Specific files
 data/compiled.csv
+training_pipeline/*.pt
+*.DS_Store

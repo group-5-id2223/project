@@ -1,18 +1,20 @@
 import feature_library as fl
 import modal
 
-LOCAL = True
+LOCAL = False
 
 if LOCAL == False:
     stub = modal.Stub('hackernews-score-pred')
     image = modal.Image.debian_slim().pip_install(['hopsworks'])
 
-    @stub.function(image=image, schedule=modal.Period(hours=1), secret=modal.Secret.from_name("hopsworks.ai"))
+    @stub.function(image=image, 
+                   schedule=modal.Period(days=1), 
+                   secret=modal.Secret.from_name("hopsworks.ai"))
     def f():
         g()
 
 def generate_live_data():
-    stories = fl.get_last_ten_stories()
+    stories = fl.get_top_ten_stories()
     data: list = [fl.process_story(story) for story in stories]
     return fl.convert_to_df(data)
 
