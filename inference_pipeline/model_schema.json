@@ -1,0 +1,42 @@
+{
+  "input_schema": {
+    "columnar_schema": [
+      {
+        "name": "id",
+        "type": "int32"
+      },
+      {
+        "name": "title",
+        "type": "object"
+      },
+      {
+        "name": "url",
+        "type": "object"
+      },
+      {
+        "name": "time",
+        "type": "datetime64[ns, UTC]"
+      },
+      {
+        "name": "descendants",
+        "type": "int64"
+      },
+      {
+        "name": "by",
+        "type": "object"
+      },
+      {
+        "name": "karma",
+        "type": "int64"
+      }
+    ]
+  },
+  "output_schema": {
+    "columnar_schema": [
+      {
+        "name": "score",
+        "type": "float64"
+      }
+    ]
+  }
+}
