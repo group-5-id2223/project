@@ -15,7 +15,7 @@ class nn_factory():
         self.tokenizer = tokenizer
     
     def fit(self, epoch, optimizer, train_loader, val_loader, model_save_path):
-        val_loss, val_acc = np.Inf, 0.
+        val_loss, val_acc = 0, 0.
         train_loss_hist, train_acc_hist = [],[]
         val_loss_hist, val_acc_hist = [],[]
 
@@ -64,7 +64,7 @@ class nn_factory():
     
     def train(self, train_loader, optimizer, epoch):
         print('[epoch %d]train on %d data......'%(epoch, len(train_loader.dataset)))
-        train_loss, correct = np.Inf, 0
+        train_loss, mse_loss = 0, 0
 
         self.model.train()
         for data, label in tqdm(train_loader):
@@ -75,30 +75,46 @@ class nn_factory():
             
             optimizer.zero_grad()
             output = self.model(device_data)
-
             criterion = nn.MSELoss()
-            loss = criterion(output, device_label)
+            mse_loss = criterion(device_label, output)
+            loss = self.hybrid_loss(device_label, output)
 
             train_loss += loss.item()
             loss.backward()
             optimizer.step()
 
-            pred = output.argmax(dim=0)
-            correct += pred.eq(device_label).sum().item()
+            mse_loss += mse_loss.detach().cpu().numpy()
 
         train_loss /= len(train_loader.dataset)
-        acc = correct/len(train_loader.dataset)
+        mse_loss = mse_loss/len(train_loader.dataset)
 
-        print('training set: average loss: %.4f, acc: %d/%d(%.3f%%)' %(train_loss,
-              correct, len(train_loader.dataset), 100 * acc))
+        print('training set: average loss: %.4f, mse_loss: %d/%d(%.3f%%)' %(train_loss,
+              mse_loss, len(train_loader.dataset), 100 * mse_loss))
 
-        return train_loss, acc
+        return train_loss, mse_loss
+    
+    def hybrid_loss(self, y_true, y_pred):
+        epsilon = 1e-6
+        weight_mae = 0.1
+        weight_msle = 1.
+        weight_poisson = 0.1
+        
+        y_pred = y_pred.squeeze()
+        mae_loss = weight_mae * torch.mean(torch.abs(y_pred - y_true), axis=-1)
+        
+        first_log = torch.log(torch.clip(y_pred, 1, None) + 1.)
+        second_log = torch.log(torch.clip(y_true, epsilon, None) + 1.)
+        msle_loss = weight_msle * torch.mean(torch.square(first_log - second_log), axis=-1)
+        
+        poisson_loss = weight_poisson * torch.mean(y_pred - y_true * torch.log(torch.clip(y_pred, epsilon, None)), axis=-1)
+        # print(f"mae_loss: {mae_loss} ; msle_loss: {msle_loss} ; poisson_loss: {poisson_loss}")
+        return torch.mean(mae_loss + msle_loss + torch.abs(poisson_loss))
 
 
     def val(self, val_loader):
         print('validation on %d data......'%len(val_loader.dataset))
         self.model.eval()
-        val_loss, correct = np.Inf, 0.
+        val_loss, mse_loss = 0, 0.
         with torch.no_grad():
             for data, label in val_loader:
                 device_data = {}
@@ -107,19 +123,19 @@ class nn_factory():
                 device_label = label.to(self.device, dtype=torch.float32)
                 
                 output = self.model(device_data)
-
                 criterion = nn.MSELoss()
-                val_loss += criterion(output, device_label).item() #sum up batch loss
+                val_loss += self.hybrid_loss(device_label, output).item() #sum up batch loss
 
-                pred = output.argmax(dim=0)
-                correct += pred.eq(device_label).sum().item()
+                mse_loss += criterion(device_label, output).detach().cpu().numpy()
+
+
             val_loss /= len(val_loader.dataset)  # avg of sum of batch loss
-            acc = correct/len(val_loader.dataset)
+            mse_loss = mse_loss/len(val_loader.dataset)
 
-        print('Val set:Average loss:%.4f, acc:%d/%d(%.3f%%)' %(val_loss,
-              correct, len(val_loader.dataset), 100. * acc))
+        print('Val set:Average loss:%.4f, mse_loss:%d/%d(%.3f%%)' %(val_loss,
+              mse_loss, len(val_loader.dataset), 100. * mse_loss))
 
-        return val_loss, acc
+        return val_loss, mse_loss
     
     
     def predict_proba(self, sentence):
