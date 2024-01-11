@@ -13,12 +13,16 @@ The dataset contains information about posts on hackernews such as the number of
 The project contains two pipelines: **inference** and **feature** pipelines. The feature pipeline extracts everyday the data from hackernews to update the dataset. The inference pipeline trains a model and saves it to a file. The prediction pipeline loads the model and predicts the number of stars a post will receive based on the title of the post, the number of comments, and the time the post was created.
 
 ## Methodology
-The based is based on the relevance of the title of the post and the domain its posted on given the hour of a day in a week. Title is tokenized and and embedded with a Linear Tokenizer and passed through an LSTM to learn sequential features. The output of the LSTM is concatenated to the categorized domain of the post URL along with the hour and the day category.
+The based is based on the relevance of the title of the post and the domain its posted on given the hour of a day in a week. Title is tokenized and and embedded with Bert and then passed to the linear layers. The objective is to able to tell the quality of the post based on title by predicting the score.
 
 These concatenated features are then passed through a linear layers to obtain the predicted score.
 Minimizing `mse` loss as typical for regression problems will not work, as the model will realize that selecting 1 unilaterally accomplishes this task the best.
 
 Instead, create a hybrid loss of `mae`, `msle`, and `poisson` (see Keras's docs for more info: https://github.com/keras-team/keras/blob/master/keras/losses.py) The latter two losses can account for very high values much better; perfect for the hyper-skewed data.
+
+![Acc](./inference_pipeline/acc.jpg)
+
+![loss](./inference_pipeline/loss.jpg)
 
 ## Websites
 Online: [link](https://huggingface.co/spaces/ID2223/hackernews-upvotes-predictor)
